@@ -3,155 +3,610 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Habit Tracker — Heatmap + Charts + Backup</title>
+  <title>Habit Tracker — Hybrid Motivation</title>
+
+  <!-- Tailwind CDN for single-file quick usage -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
   <style>
+    /* Heatmap squares */
     .heat-square { width: 28px; height: 28px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:10px; cursor:pointer; }
-    @media (max-width: 640px) { .heat-square { width: 22px; height:22px; font-size:9px; } }
+    @media (max-width: 640px) { .heat-square { width:22px; height:22px; font-size:9px; } }
+
+    /* subtle card shadow */
+    .card { background: white; border-radius: 12px; box-shadow: 0 6px 18px rgba(20, 24, 40, 0.04); }
+
+    /* banner animation */
+    .banner {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 14%;
+      z-index: 9999;
+      padding: 12px 20px;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+      animation: slideUp 0.6s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translate(-50%, -30px); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
+    }
+
+    /* confetti canvas sits on top */
+    #confetti-canvas {
+      position: fixed;
+      pointer-events: none;
+      inset: 0;
+      z-index: 9998;
+    }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen p-4">
-  <div class="max-w-3xl mx-auto">
-    <div class="bg-white shadow rounded-lg p-4 mb-4">
-      <h1 class="text-2xl font-bold text-center mb-2">🔥 Habit Tracker</h1>
-      <p class="text-sm text-gray-600 text-center mb-4">Private data stored locally — export/import backups anytime.</p>
+  <canvas id="confetti-canvas"></canvas>
 
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
-        <input id="newName" class="col-span-2 border rounded px-2 py-2" placeholder="New habit name" />
-        <input id="newTarget" type="number" min="1" value="5" class="border rounded px-2 py-2" placeholder="target/day" />
-        <button id="addBtn" class="sm:col-span-3 bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Add Habit</button>
+  <div id="banner-root"></div>
+
+  <div class="max-w-4xl mx-auto space-y-4">
+    <!-- Header -->
+    <div class="card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-semibold">🔥 Hybrid Habit Tracker</h1>
+        <p class="text-sm text-gray-600">Multiple habits • daily targets • heatmap • streaks • motivational boosts</p>
       </div>
-
-      <div class="flex gap-2 flex-wrap" id="habitsContainer"></div>
-    </div>
-
-    <div id="mainPanel" class="bg-white shadow rounded-lg p-4">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div class="flex items-center gap-3">
-          <label class="text-sm text-gray-600">Selected habit:</label>
-          <select id="habitSelect" class="border rounded px-2 py-1"></select>
-          <button id="editSelected" class="bg-yellow-400 text-white px-2 py-1 rounded hover:bg-yellow-500">Edit</button>
-          <button id="deleteSelected" class="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">Delete</button>
-        </div>
-        <div class="flex gap-2">
-          <button id="exportBtn" class="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700">Export</button>
-          <input type="file" id="importFile" accept=".json" class="hidden">
-          <button id="importBtn" class="bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700">Import</button>
-        </div>
-        <div class="text-sm text-gray-600">
-          <span id="streakBadge" class="font-semibold"></span>
-        </div>
-      </div>
-
-      <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="col-span-1 bg-gray-50 rounded p-3">
-          <h3 id="habitTitle" class="text-lg font-semibold"></h3>
-          <p class="text-sm text-gray-500" id="habitTargetText"></p>
-          <div class="mt-3 flex items-center gap-2">
-            <button id="decrement" class="bg-gray-200 px-3 py-1 rounded">−</button>
-            <div class="text-xl font-bold" id="todayCount">0</div>
-            <button id="increment" class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">+</button>
-          </div>
-          <div class="mt-3 text-sm text-gray-600">
-            Today: <span id="todayPct">0%</span> • Last updated: <span id="lastUpdated">—</span>
-          </div>
-        </div>
-        <div class="col-span-2 bg-gray-50 rounded p-3">
-          <h4 class="font-semibold mb-2">Calendar Heatmap — This Month</h4>
-          <div id="heatmap" class="grid gap-1" style="grid-template-columns: repeat(7, auto);"></div>
-          <div class="flex gap-2 text-xs text-gray-600 mt-2">
-            <div class="flex items-center gap-1"><div class="h-4 w-4 rounded bg-gray-200"></div> 0%</div>
-            <div class="flex items-center gap-1"><div class="h-4 w-4 rounded" style="background:#d6f5d6"></div> 1–49%</div>
-            <div class="flex items-center gap-1"><div class="h-4 w-4 rounded" style="background:#7dd38b"></div> 50–99%</div>
-            <div class="flex items-center gap-1"><div class="h-4 w-4 rounded" style="background:#15803d"></div> 100%+</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="mt-4">
-        <h4 class="font-semibold mb-2">30-Day Completion %</h4>
-        <canvas id="percentChart" height="90"></canvas>
+      <div class="flex gap-2 items-center">
+        <button id="randomQuoteBtn" class="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">Show Quote</button>
+        <button id="exportBtnTop" class="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">Export</button>
+        <input id="importFile" type="file" accept=".json" class="hidden">
+        <button id="importBtn" class="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm">Import</button>
       </div>
     </div>
 
-    <div class="text-sm text-gray-500 text-center mt-3">
-      Hosted on GitHub Pages — data never leaves your browser.
+    <!-- Add habit -->
+    <div class="card p-4">
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+        <input id="newName" class="col-span-2 border rounded px-2 py-2" placeholder="Habit name (e.g. Walk)" />
+        <input id="newTarget" type="number" min="1" value="5" class="border rounded px-2 py-2" placeholder="Target/day" />
+        <button id="addBtn" class="bg-blue-600 text-white rounded px-3 py-2 hover:bg-blue-700">Add Habit</button>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">Tip: set targets like 5–8 and adjust daily with + / −</p>
     </div>
+
+    <div class="grid md:grid-cols-3 gap-4">
+      <!-- Left: habit list -->
+      <div class="card p-4">
+        <h2 class="font-semibold mb-3">Your Habits</h2>
+        <div id="habitsContainer" class="space-y-2"></div>
+        <div class="mt-4 text-xs text-gray-500">Tap a habit to view details. Long-term badges will show below the habit name.</div>
+      </div>
+
+      <!-- Middle + Right: selected habit details -->
+      <div class="md:col-span-2 space-y-4">
+        <div class="card p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 id="habitTitle" class="text-xl font-semibold">Select a habit</h3>
+              <p id="habitTargetText" class="text-sm text-gray-500">—</p>
+              <div id="badgesRow" class="flex gap-2 mt-2"></div>
+            </div>
+
+            <div class="flex flex-col items-end gap-2">
+              <div class="w-48">
+                <div class="text-sm text-gray-600">Monthly Progress</div>
+                <div class="w-full bg-gray-200 rounded-full h-3 mt-1 overflow-hidden">
+                  <div id="monthProgressBar" class="h-3 rounded-full" style="width:0%; background:linear-gradient(90deg,#7dd38b,#f6c84c)"></div>
+                </div>
+                <div class="text-xs text-gray-500 mt-1" id="monthProgressText">0% • 0 / 0</div>
+              </div>
+
+              <div class="text-sm text-gray-600">
+                <span id="streakBadge" class="font-semibold">Streak: —</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="bg-gray-50 rounded p-3 flex flex-col items-center">
+              <div class="text-sm text-gray-500">Today</div>
+              <div class="text-3xl font-bold" id="todayCount">0</div>
+              <div class="flex gap-2 mt-3">
+                <button id="decrement" class="px-3 py-1 rounded bg-gray-200 text-lg">−</button>
+                <button id="increment" class="px-3 py-1 rounded bg-green-500 text-white text-lg">+</button>
+              </div>
+              <div class="mt-2 text-xs text-gray-500">Today: <span id="todayPct">0%</span></div>
+              <div class="mt-1 text-xs text-gray-400" id="lastUpdated">—</div>
+            </div>
+
+            <div class="md:col-span-2 bg-gray-50 rounded p-3">
+              <h4 class="font-semibold mb-2">Calendar Heatmap — This Month</h4>
+              <div id="heatmap" class="grid gap-1" style="grid-template-columns: repeat(7, auto);"></div>
+              <div class="flex gap-2 text-xs text-gray-600 mt-2">
+                <div class="flex items-center gap-1"><div class="h-4 w-4 rounded bg-gray-200"></div> 0%</div>
+                <div class="flex items-center gap-1"><div class="h-4 w-4 rounded" style="background:#d6f5d6"></div> 1–49%</div>
+                <div class="flex items-center gap-1"><div class="h-4 w-4 rounded" style="background:#7dd38b"></div> 50–99%</div>
+                <div class="flex items-center gap-1"><div class="h-4 w-4 rounded" style="background:#f6c84c"></div> 100%</div>
+                <div class="flex items-center gap-1"><div class="h-4 w-4 rounded" style="background:#ef4444"></div> 150%+</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Chart card -->
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <h4 class="font-semibold">Last 30 Days — Completion %</h4>
+            <div class="text-xs text-gray-500">Cap at 200%</div>
+          </div>
+          <canvas id="percentChart" height="90" class="mt-3"></canvas>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="text-center text-xs text-gray-500">Made for quick mobile use — you can add to home screen.</div>
   </div>
 
 <script>
-const LS_KEY = 'habit_tracker_v1';
-function todayISO(offset=0){let d=new Date();d.setDate(d.getDate()+offset);return d.toISOString().slice(0,10);}
-function load(){return JSON.parse(localStorage.getItem(LS_KEY)||'[]');}
-function save(h){localStorage.setItem(LS_KEY,JSON.stringify(h));}
-function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
-let habits=load(),selectedId=null,percentChart=null;
-const el=(id)=>document.getElementById(id);
-function renderHabitButtons(){
-  const hc=el('habitsContainer'),hs=el('habitSelect');
-  hc.innerHTML='';hs.innerHTML='';
-  if(!habits.length){hc.innerHTML='<div class="text-sm text-gray-500">No habits yet.</div>';hs.innerHTML='<option value="">—</option>';selectedId=null;renderMain();return;}
-  habits.forEach(h=>{
-    let b=document.createElement('button');
-    b.className='bg-white border rounded px-3 py-1 text-sm hover:shadow';
-    b.textContent=`${h.name} • ${h.target}/day`;b.onclick=()=>{selectedId=h.id;renderMain();};
-    hc.appendChild(b);
-    let o=document.createElement('option');o.value=h.id;o.textContent=h.name;hs.appendChild(o);
-  });
-  if(!selectedId||!habits.some(h=>h.id===selectedId))selectedId=habits[0].id;
-  hs.value=selectedId;
+/* -------------------------
+  Data model (localStorage)
+  habit = {
+    id, name, target, history: { "YYYY-MM-DD": number }, badges: { '7day':true, '30day':true, 'perfectMonthYYYY-MM':true }
+  }
+  ------------------------- */
+
+const LS_KEY = 'habit_tracker_hybrid_v1';
+function todayISO(offset=0){ const d=new Date(); d.setDate(d.getDate()+offset); return d.toISOString().slice(0,10); }
+function load(){ try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; } }
+function save(h){ localStorage.setItem(LS_KEY, JSON.stringify(h)); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+/* UI refs */
+const el = id => document.getElementById(id);
+const newName = el('newName'), newTarget = el('newTarget'), addBtn = el('addBtn');
+const habitsContainer = el('habitsContainer'), habitTitle = el('habitTitle'), habitTargetText = el('habitTargetText');
+const badgesRow = el('badgesRow'), todayCountEl = el('todayCount'), incrementBtn = el('increment'), decrementBtn = el('decrement');
+const heatmapEl = el('heatmap'), percentChartCtx = el('percentChart').getContext('2d'), streakBadge = el('streakBadge');
+const monthProgressBar = el('monthProgressBar'), monthProgressText = el('monthProgressText');
+const todayPctEl = el('todayPct'), lastUpdatedEl = el('lastUpdated');
+const exportBtnTop = el('exportBtnTop'), importBtn = el('importBtn'), importFile = el('importFile'), randomQuoteBtn = el('randomQuoteBtn');
+
+let habits = load(), selectedId = null, percentChart = null;
+
+/* Motivational quotes */
+const QUOTES = [
+  "Small progress is still progress.",
+  "Do it for the person you'll become.",
+  "Consistency compounds — keep going.",
+  "One more rep. One more day.",
+  "Build habits, build life.",
+  "You're closer than you think.",
+  "Good things take time. Keep showing up."
+];
+
+/* Confetti (simple canvas-based) */
+const confettiCanvas = el('confetti-canvas');
+confettiCanvas.width = window.innerWidth;
+confettiCanvas.height = window.innerHeight;
+const confettiCtx = confettiCanvas.getContext('2d');
+let confettiPieces = [];
+function makeConfetti() {
+  confettiPieces = [];
+  const count = 120;
+  for (let i=0;i<count;i++){
+    confettiPieces.push({
+      x: Math.random()*window.innerWidth,
+      y: -Math.random()*window.innerHeight,
+      w: 6 + Math.random()*6,
+      h: 6 + Math.random()*6,
+      vx: -2 + Math.random()*4,
+      vy: 2 + Math.random()*6,
+      rot: Math.random()*360,
+      color: ['#f97316','#f59e0b','#10b981','#06b6d4','#7c3aed','#ef4444'][Math.floor(Math.random()*6)]
+    });
+  }
+  animateConfetti();
 }
-function computeStreak(h){if(!h.history)return 0;let s=0;for(let i=0;i<365;i++){let d=todayISO(-i),v=h.history[d]||0;if(v>=h.target)s++;else break;}return s;}
-function renderHeatmap(h){
-  const heat=el('heatmap');heat.innerHTML='';
-  let now=new Date(),y=now.getFullYear(),m=now.getMonth(),first=new Date(y,m,1),last=new Date(y,m+1,0),
-      start=first.getDay(),days=last.getDate();
-  for(let i=0;i<start;i++){let blank=document.createElement('div');blank.className='heat-square bg-transparent';heat.appendChild(blank);}
-  for(let d=1;d<=days;d++){
-    let dateStr=new Date(y,m,d).toISOString().slice(0,10),val=h.history?.[dateStr]||0,pct=Math.min(100,Math.round(val/h.target*100)),
-        sq=document.createElement('div');
-    sq.className='heat-square';sq.textContent=d;
-    if(pct===0)sq.style.background='#e6e6e6';
-    else if(pct<=49)sq.style.background='#d6f5d6';
-    else if(pct<=99)sq.style.background='#7dd38b';
-    else{sq.style.background='#15803d';sq.style.color='#fff';}
-    sq.title=`${dateStr}: ${val}/${h.target} (${pct}%)`;
-    sq.onclick=()=>{let nv=prompt(`Set count for ${dateStr}:`,val);if(nv===null)return;nv=parseInt(nv,10);if(isNaN(nv)||nv<0)return;h.history[dateStr]=nv;save(habits);renderMain();};
-    heat.appendChild(sq);
+let confettiAnimId = null;
+function animateConfetti(){
+  confettiCtx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);
+  for (const p of confettiPieces){
+    p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.rot += 6;
+    confettiCtx.save();
+    confettiCtx.translate(p.x, p.y);
+    confettiCtx.rotate(p.rot * Math.PI/180);
+    confettiCtx.fillStyle = p.color;
+    confettiCtx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+    confettiCtx.restore();
+  }
+  confettiPieces = confettiPieces.filter(p => p.y < window.innerHeight + 50);
+  if (confettiPieces.length > 0) confettiAnimId = requestAnimationFrame(animateConfetti);
+  else { confettiCtx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height); cancelAnimationFrame(confettiAnimId); confettiAnimId = null; }
+}
+
+/* Banner helper */
+function showBanner(text, tone='bg-green-500') {
+  const root = el('banner-root');
+  const id = 'banner-'+Date.now();
+  const div = document.createElement('div');
+  div.id = id;
+  div.className = `banner ${tone} text-white`;
+  div.style.padding = '14px 18px';
+  div.innerHTML = `<div class="font-semibold">${text}</div>`;
+  root.appendChild(div);
+  setTimeout(()=> { div.style.transition = 'opacity 0.6s'; div.style.opacity = '0'; setTimeout(()=>root.removeChild(div),600); }, 3500);
+}
+
+/* Utility: ensure selected habit */
+function ensureSelected() { if (!selectedId && habits.length) selectedId = habits[0].id; }
+
+/* Render habits list */
+function renderHabitButtons() {
+  habitsContainer.innerHTML = '';
+  if (habits.length === 0) {
+    habitsContainer.innerHTML = '<div class="text-sm text-gray-500">No habits yet. Add one above.</div>';
+    selectedId = null;
+    renderMain();
+    return;
+  }
+  for (const h of habits) {
+    const btn = document.createElement('div');
+    btn.className = 'flex items-center justify-between border rounded p-2 hover:shadow cursor-pointer';
+    btn.onclick = () => { selectedId = h.id; renderMain(); };
+    const left = document.createElement('div');
+    left.innerHTML = `<div class="font-medium">${escapeHtml(h.name)}</div><div class="text-xs text-gray-500">${h.target}/day • ${computeTotalCompleted(h)} total</div>`;
+    const right = document.createElement('div');
+    right.className = 'flex items-center gap-2';
+    const editBtn = document.createElement('button');
+    editBtn.className = 'text-xs text-yellow-600 px-2 py-1 rounded hover:bg-yellow-50'; editBtn.textContent='Edit';
+    editBtn.onclick = (e)=> { e.stopPropagation(); editHabit(h.id); };
+    const delBtn = document.createElement('button');
+    delBtn.className = 'text-xs text-red-600 px-2 py-1 rounded hover:bg-red-50'; delBtn.textContent='Delete';
+    delBtn.onclick = (e) => { e.stopPropagation(); deleteHabit(h.id); };
+    right.appendChild(editBtn); right.appendChild(delBtn);
+    btn.appendChild(left); btn.appendChild(right);
+    habitsContainer.appendChild(btn);
   }
 }
-function updateChart(){
-  let h=habits.find(x=>x.id===selectedId);if(!h){percentChart?.destroy();return;}
-  let labels=[],data=[];for(let i=29;i>=0;i--){let d=new Date();d.setDate(d.getDate()-i);
-    let iso=d.toISOString().slice(0,10);labels.push(iso.slice(5));
-    let val=h.history?.[iso]||0,pct=Math.round(val/h.target*100);data.push(Math.min(200,pct));
-  }
-  percentChart?.destroy();
-  percentChart=new Chart(el('percentChart').getContext('2d'),{
-    type:'bar',data:{labels,datasets:[{label:'% of target',data,backgroundColor:c=>{let v=c.raw;if(v===0)return'#e6e6e6';if(v<=49)return'#d6f5d6';if(v<=99)return'#7dd38b';return'#15803d';}}]},
-    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,max:200,ticks:{callback:v=>v+'%'}}}}
-  });
+
+/* Escape html small helper */
+function escapeHtml(s){ return s.replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[m]); }
+
+/* Add habit */
+addBtn.addEventListener('click', () => {
+  const name = newName.value.trim(); const target = parseInt(newTarget.value,10);
+  if (!name || !target || target <= 0) { alert('Please enter a valid name and target (>=1).'); return; }
+  const h = { id: uid(), name, target, history: {}, badges: {} };
+  habits.unshift(h); save(habits); newName.value=''; newTarget.value='5'; selectedId = h.id; renderAll();
+  showBanner('Habit added — let’s go!', 'bg-indigo-600');
+});
+
+/* Edit / Delete */
+function editHabit(id) {
+  const h = habits.find(x=>x.id===id); if (!h) return;
+  const nn = prompt('Edit habit name:', h.name); if (nn === null) return;
+  const nt = prompt('Daily target (number):', h.target); if (nt === null) return;
+  const t = parseInt(nt,10); if (!nn.trim() || isNaN(t) || t<1) return alert('Invalid name or target');
+  h.name = nn.trim(); h.target = t; save(habits); renderAll(); showBanner('Habit updated', 'bg-yellow-600');
 }
-function renderMain(){
+function deleteHabit(id) {
+  if (!confirm('Delete this habit? This will remove its history.')) return;
+  habits = habits.filter(h=>h.id !== id); save(habits); selectedId = habits[0]?.id || null; renderAll(); showBanner('Habit deleted', 'bg-red-600');
+}
+
+/* compute total completions */
+function computeTotalCompleted(h) {
+  return Object.values(h.history || {}).reduce((s,v)=>s+(parseInt(v)||0),0);
+}
+
+/* Adjust today count */
+incrementBtn.addEventListener('click', ()=> adjustTodayCount(1));
+decrementBtn.addEventListener('click', ()=> adjustTodayCount(-1));
+
+function adjustTodayCount(delta) {
+  const h = habits.find(x=>x.id===selectedId); if (!h) return;
+  const date = todayISO();
+  if (!h.history) h.history = {};
+  const current = parseInt(h.history[date]||0,10);
+  const next = Math.max(0, current + delta);
+  h.history[date] = next;
+  save(habits);
+  renderMain();
+  // If new value achieves or surpasses target and previously didn't, celebrate
+  if (current < h.target && next >= h.target) {
+    makeConfetti(); showBanner(`Daily goal met — +${h.target} ✅`, 'bg-green-600');
+    evaluateAndAwardBadges(h);
+  }
+}
+
+/* Render main panel */
+function renderMain() {
   renderHabitButtons();
-  let h=habits.find(x=>x.id===selectedId);if(!h){el('habitTitle').textContent='No habit';return;}
-  el('habitTitle').textContent=h.name;el('habitTargetText').textContent=`Target: ${h.target}/day`;
-  let today=todayISO(),count=h.history?.[today]||0;pct=Math.round(count/h.target*100);
-  el('todayCount').textContent=count;el('todayPct').textContent=`${pct}%`;el('lastUpdated').textContent=h.history?.[today]!==undefined?today:'—';
-  el('streakBadge').textContent=`Streak: ${computeStreak(h)} days`;
-  renderHeatmap(h);updateChart();
+  ensureSelected();
+  const h = habits.find(x=>x.id===selectedId);
+  if (!h) {
+    habitTitle.textContent = 'Select a habit';
+    habitTargetText.textContent = '';
+    todayCountEl.textContent = '0';
+    streakBadge.textContent = 'Streak: —';
+    heatmapEl.innerHTML = '';
+    monthProgressBar.style.width = '0%';
+    monthProgressText.textContent = '0% • 0 / 0';
+    percentChart?.destroy();
+    badgesRow.innerHTML = '';
+    return;
+  }
+
+  habitTitle.textContent = h.name;
+  habitTargetText.textContent = `Target: ${h.target} times / day`;
+  badgesRow.innerHTML = '';
+  // show unlocked badges small
+  for (const k of Object.keys(h.badges || {})) {
+    if (!h.badges[k]) continue;
+    const b = document.createElement('span');
+    b.className = 'text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full';
+    b.textContent = badgeNiceName(k);
+    badgesRow.appendChild(b);
+  }
+
+  // today's count
+  const today = todayISO();
+  const todayCount = parseInt(h.history?.[today]||0,10);
+  todayCountEl.textContent = todayCount;
+  const pct = Math.round((todayCount / h.target) * 100);
+  todayPctEl.textContent = `${Math.min(pct,999)}%`;
+  lastUpdatedEl.textContent = h.history && h.history[today] !== undefined ? 'Last updated: today' : 'Last updated: —';
+
+  // streak
+  streakBadge.textContent = `Streak: ${computeStreak(h)} days`;
+
+  // month progress
+  const monthStats = computeMonthProgress(h);
+  monthProgressBar.style.width = `${monthStats.pct}%`;
+  monthProgressText.textContent = `${monthStats.pct}% • ${monthStats.sum}/${monthStats.days * h.target}`;
+
+  // render heatmap & chart
+  renderHeatmap(h);
+  updateCharts(h);
+
+  // evaluate badges on every render to catch conditions made by import, editing, etc.
+  evaluateAndAwardBadges(h);
 }
-function adjustToday(n){let h=habits.find(x=>x.id===selectedId);if(!h)return;let t=todayISO(),c=h.history?.[t]||0;c=Math.max(0,c+n);h.history[t]=c;save(habits);renderMain();}
-el('addBtn').onclick=()=>{let name=el('newName').value.trim(),target=parseInt(el('newTarget').value,10);if(!name||!target)return alert('Enter valid name & target');let h={id:uid(),name,target,history:{}};habits.unshift(h);save(habits);el('newName').value='';el('newTarget').value=5;selectedId=h.id;renderMain();};
-el('editSelected').onclick=()=>{let h=habits.find(x=>x.id===selectedId);if(!h)return;let nn=prompt('Name:',h.name),nt=prompt('Target:',h.target);if(nn&&nt>0){h.name=nn;h.target=parseInt(nt,10);save(habits);renderMain();}};
-el('deleteSelected').onclick=()=>{if(confirm('Delete habit?')){habits=habits.filter(h=>h.id!==selectedId);save(habits);selectedId=habits[0]?.id||null;renderMain();}};
-el('increment').onclick=()=>adjustToday(1);el('decrement').onclick=()=>adjustToday(-1);el('habitSelect').onchange=e=>{selectedId=e.target.value;renderMain();};
+
+/* compute streak */
+function computeStreak(h) {
+  if (!h || !h.history) return 0;
+  let streak = 0;
+  for (let i=0;i<365;i++){
+    const d = todayISO(-i);
+    const val = parseInt(h.history[d]||0,10);
+    if (val >= h.target) streak++; else break;
+  }
+  return streak;
+}
+
+/* compute month progress */
+function computeMonthProgress(h) {
+  const now = new Date(); const y = now.getFullYear(), m = now.getMonth();
+  const first = new Date(y,m,1); const last = new Date(y,m+1,0);
+  const days = last.getDate();
+  let sum = 0;
+  for (let d=1;d<=days;d++){
+    const iso = new Date(y,m,d).toISOString().slice(0,10);
+    sum += parseInt(h.history?.[iso]||0,10);
+  }
+  const pct = Math.round((sum / (days * h.target)) * 100);
+  return { days, sum, pct: Math.min(100, pct) };
+}
+
+/* render heatmap (month grid) */
+function renderHeatmap(h) {
+  heatmapEl.innerHTML = '';
+  const now = new Date(); const year = now.getFullYear(), month = now.getMonth();
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month+1, 0);
+  const daysInMonth = last.getDate();
+  const startWeekday = first.getDay();
+
+  // dow headers
+  const dow = ['S','M','T','W','T','F','S'];
+  const headerRow = document.createElement('div');
+  headerRow.style.gridColumn = '1 / -1';
+  headerRow.className = 'flex gap-1 mb-1';
+  dow.forEach(w => {
+    const elw = document.createElement('div'); elw.className = 'text-xs text-gray-500 w-7 text-center'; elw.textContent = w; headerRow.appendChild(elw);
+  });
+  heatmapEl.appendChild(headerRow);
+  heatmapEl.style.gridTemplateColumns = 'repeat(7, auto)';
+
+  // blanks
+  for (let i=0;i<startWeekday;i++){
+    const blank = document.createElement('div'); blank.className = 'heat-square bg-transparent'; heatmapEl.appendChild(blank);
+  }
+
+  for (let d=1; d<=daysInMonth; d++) {
+    const iso = new Date(year, month, d).toISOString().slice(0,10);
+    const val = parseInt(h.history?.[iso]||0,10);
+    const pct = Math.min(200, Math.round((val / h.target) * 100));
+    const sq = document.createElement('div');
+    sq.className = 'heat-square';
+    sq.textContent = d;
+    sq.title = `${iso}: ${val}/${h.target} (${pct}%)`;
+
+    // color mapping: 0 grey, 1-49 light, 50-99 green, 100 gold, 150+ red (overachievement)
+    if (pct === 0) sq.style.background = '#e6e6e6';
+    else if (pct <= 49) sq.style.background = '#d6f5d6';
+    else if (pct <= 99) sq.style.background = '#7dd38b';
+    else if (pct <= 149) { sq.style.background = '#f6c84c'; sq.style.color = '#000'; }
+    else { sq.style.background = '#ef4444'; sq.style.color = '#fff'; }
+
+    // click to edit that day's count
+    sq.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const newVal = prompt(`Set count for ${iso} (target ${h.target}):`, val);
+      if (newVal === null) return;
+      const n = parseInt(newVal,10); if (isNaN(n) || n < 0) return alert('Invalid number');
+      if (!h.history) h.history = {};
+      h.history[iso] = n;
+      save(habits);
+      renderMain();
+    });
+
+    heatmapEl.appendChild(sq);
+  }
+
+  // pad last row
+  const totalCells = startWeekday + daysInMonth;
+  const remainder = (7 - (totalCells % 7)) % 7;
+  for (let i=0;i<remainder;i++){
+    const blank = document.createElement('div'); blank.className = 'heat-square bg-transparent'; heatmapEl.appendChild(blank);
+  }
+}
+
+/* Chart: last 30 days completion % */
+function updateCharts(h) {
+  if (!h) { percentChart?.destroy(); percentChart = null; return; }
+  const labels = [], data = [];
+  for (let i=29;i>=0;i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const iso = d.toISOString().slice(0,10);
+    labels.push(iso.slice(5));
+    const val = parseInt(h.history?.[iso]||0,10);
+    const pct = Math.round((val / h.target) * 100);
+    data.push(Math.min(200, pct));
+  }
+
+  percentChart?.destroy();
+  percentChart = new Chart(percentChartCtx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '% of target',
+        data,
+        backgroundColor: ctx => {
+          const v = ctx.raw;
+          if (v === 0) return '#e6e6e6';
+          if (v <= 49) return '#d6f5d6';
+          if (v <= 99) return '#7dd38b';
+          if (v <= 149) return '#f6c84c';
+          return '#ef4444';
+        }
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, max: 200, ticks: { callback: v => v + '%' } } }
+    }
+  });
+}
+
+/* Evaluate badges and award (once) */
+function badgeNiceName(k) {
+  if (k === '7day') return '7-day streak';
+  if (k === '30day') return '30-day streak';
+  if (k.startsWith('perfectMonth')) return 'Perfect month';
+  return k;
+}
+function evaluateAndAwardBadges(h) {
+  const newly = [];
+  if (!h.badges) h.badges = {};
+
+  // 7-day streak
+  if (!h.badges['7day'] && computeStreak(h) >= 7) { h.badges['7day'] = true; newly.push('7-day streak'); }
+
+  // 30-day streak
+  if (!h.badges['30day'] && computeStreak(h) >= 30) { h.badges['30day'] = true; newly.push('30-day streak'); }
+
+  // perfect month (any month where every day >= target)
+  // check current month
+  const now = new Date(); const y = now.getFullYear(), m = now.getMonth();
+  const first = new Date(y,m,1), last = new Date(y,m+1,0), days = last.getDate();
+  let perfect = true;
+  for (let d=1; d<=days; d++){
+    const iso = new Date(y,m,d).toISOString().slice(0,10);
+    const val = parseInt(h.history?.[iso]||0,10);
+    if (val < h.target) { perfect = false; break; }
+  }
+  const key = `perfectMonth${y}-${String(m+1).padStart(2,'0')}`;
+  if (perfect && !h.badges[key]) { h.badges[key] = true; newly.push('Perfect month!'); }
+
+  if (newly.length) {
+    save(habits);
+    showBanner(`Milestone: ${newly.join(', ')}`, 'bg-indigo-600');
+    makeConfetti();
+  }
+}
+
 /* Export / Import */
-el('exportBtn').onclick=()=>{let blob=new Blob([JSON.stringify(habits)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='habits-backup.json';a.click();};
-el('importBtn').onclick=()=>el('importFile').click();
-el('importFile').onchange=(e)=>{let file=e.target.files[0];if(!file)return;let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(Array.isArray(d)){habits=d;save(habits);selectedId=habits[0]?.id||null;renderMain();}else alert('Invalid file');}catch{alert('Invalid JSON');}};r.readAsText(file);};
-if(!selectedId&&habits.length)selectedId=habits[0].id;renderMain();
+exportBtnTop.addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(habits, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'habits-backup.json'; a.click();
+});
+importBtn.addEventListener('click', () => importFile.click());
+importFile.addEventListener('change', (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (!Array.isArray(d)) return alert('Invalid backup format (must be an array).');
+      habits = d;
+      save(habits);
+      selectedId = habits[0]?.id || null;
+      renderAll();
+      showBanner('Import complete', 'bg-green-600');
+    } catch (err) { alert('Invalid JSON file'); }
+  };
+  r.readAsText(f);
+});
+
+/* random quote */
+function showRandomQuote() {
+  const q = QUOTES[Math.floor(Math.random()*QUOTES.length)];
+  showBanner(q, 'bg-indigo-700');
+}
+randomQuoteBtn.addEventListener('click', showRandomQuote);
+
+/* small helper to award after import or edits */
+function postLoadEvaluate() {
+  for (const h of habits) evaluateAndAwardBadges(h);
+}
+
+/* Render all */
+function renderAll() {
+  renderHabitButtons();
+  ensureSelected();
+  renderMain();
+}
+if (!selectedId && habits.length) selectedId = habits[0].id;
+renderAll();
+postLoadEvaluate();
+
+/* keyboard: enter to add */
+newName.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
+
+/* Demo data if empty (optional) */
+if (habits.length === 0) {
+  const sample = { id: uid(), name: 'Drink Water', target: 8, history: {}, badges: {} };
+  for (let i=0;i<12;i++){ const d = new Date(); d.setDate(d.getDate()-i); sample.history[d.toISOString().slice(0,10)] = Math.floor(Math.random()*10); }
+  habits.push(sample); save(habits); selectedId = sample.id; renderAll();
+}
+
+/* Window resize for confetti canvas */
+window.addEventListener('resize', () => {
+  confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight;
+});
+
+/* Simple helper: when new month starts, evaluate perfect-month badges for previous month too
+   (user can also import historic data; evaluate badges on every render) */
+function init() {
+  showRandomQuote();
+}
+init();
+
 </script>
 </body>
 </html>
