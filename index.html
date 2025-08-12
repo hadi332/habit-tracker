@@ -3,64 +3,37 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Habit Tracker — Hybrid Motivation</title>
+  <title>Habit Tracker — Hybrid + Gist Sync (Encrypted)</title>
 
-  <!-- Tailwind CDN for single-file quick usage -->
+  <!-- Tailwind CDN for single-file demo -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
   <style>
-    /* Heatmap squares */
-    .heat-square { width: 28px; height: 28px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:10px; cursor:pointer; }
-    @media (max-width: 640px) { .heat-square { width:22px; height:22px; font-size:9px; } }
-
-    /* subtle card shadow */
-    .card { background: white; border-radius: 12px; box-shadow: 0 6px 18px rgba(20, 24, 40, 0.04); }
-
-    /* banner animation */
-    .banner {
-      position: fixed;
-      left: 50%;
-      transform: translateX(-50%);
-      top: 14%;
-      z-index: 9999;
-      padding: 12px 20px;
-      border-radius: 10px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.12);
-      animation: slideUp 0.6s ease;
-    }
-    @keyframes slideUp {
-      from { transform: translate(-50%, -30px); opacity: 0; }
-      to { transform: translate(-50%, 0); opacity: 1; }
-    }
-
-    /* confetti canvas sits on top */
-    #confetti-canvas {
-      position: fixed;
-      pointer-events: none;
-      inset: 0;
-      z-index: 9998;
-    }
+    .heat-square { width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:10px; cursor:pointer }
+    @media (max-width:640px){ .heat-square{ width:22px; height:22px; font-size:9px } }
+    .card{ background:white; border-radius:12px; box-shadow:0 6px 18px rgba(20,24,40,0.04) }
+    .banner{ position:fixed; left:50%; transform:translateX(-50%); top:12%; z-index:9999; padding:12px 20px; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.12); animation:slideUp 0.55s ease }
+    @keyframes slideUp{ from{transform:translate(-50%,-30px);opacity:0} to{transform:translate(-50%,0);opacity:1} }
+    #confetti-canvas{ position:fixed; inset:0; pointer-events:none; z-index:9998 }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen p-4">
   <canvas id="confetti-canvas"></canvas>
-
   <div id="banner-root"></div>
 
   <div class="max-w-4xl mx-auto space-y-4">
     <!-- Header -->
     <div class="card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-semibold">🔥 Hybrid Habit Tracker</h1>
-        <p class="text-sm text-gray-600">Multiple habits • daily targets • heatmap • streaks • motivational boosts</p>
+        <h1 class="text-2xl font-semibold">🔥 Habit Tracker — Hybrid</h1>
+        <p class="text-sm text-gray-600">Encrypted GitHub Gist sync • PIN-protected • PWA-ready</p>
       </div>
       <div class="flex gap-2 items-center">
-        <button id="randomQuoteBtn" class="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">Show Quote</button>
-        <button id="exportBtnTop" class="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">Export</button>
-        <input id="importFile" type="file" accept=".json" class="hidden">
-        <button id="importBtn" class="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm">Import</button>
+        <button id="quoteBtn" class="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">Quote</button>
+        <button id="settingsBtn" class="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm">⚙ Settings</button>
+        <button id="installBtn" class="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm hidden">Install</button>
       </div>
     </div>
 
@@ -79,10 +52,10 @@
       <div class="card p-4">
         <h2 class="font-semibold mb-3">Your Habits</h2>
         <div id="habitsContainer" class="space-y-2"></div>
-        <div class="mt-4 text-xs text-gray-500">Tap a habit to view details. Long-term badges will show below the habit name.</div>
+        <div class="mt-4 text-xs text-gray-500">Tap a habit to view details. Use Settings to enable sync.</div>
       </div>
 
-      <!-- Middle + Right: selected habit details -->
+      <!-- Right: details -->
       <div class="md:col-span-2 space-y-4">
         <div class="card p-4">
           <div class="flex items-start justify-between gap-3">
@@ -100,10 +73,7 @@
                 </div>
                 <div class="text-xs text-gray-500 mt-1" id="monthProgressText">0% • 0 / 0</div>
               </div>
-
-              <div class="text-sm text-gray-600">
-                <span id="streakBadge" class="font-semibold">Streak: —</span>
-              </div>
+              <div class="text-sm text-gray-600"><span id="streakBadge" class="font-semibold">Streak: —</span></div>
             </div>
           </div>
 
@@ -131,10 +101,8 @@
               </div>
             </div>
           </div>
-
         </div>
 
-        <!-- Chart card -->
         <div class="card p-4">
           <div class="flex items-center justify-between">
             <h4 class="font-semibold">Last 30 Days — Completion %</h4>
@@ -146,22 +114,67 @@
       </div>
     </div>
 
-    <div class="text-center text-xs text-gray-500">Made for quick mobile use — you can add to home screen.</div>
+    <div class="text-center text-xs text-gray-500">PWA-ready — add to home screen for app-like use.</div>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center hidden z-50">
+    <div class="bg-white rounded-lg w-11/12 max-w-md p-4 space-y-3">
+      <div class="flex justify-between items-center">
+        <h3 class="font-semibold">Settings</h3>
+        <button id="closeSettings" class="text-gray-600">✕</button>
+      </div>
+
+      <div class="space-y-2">
+        <label class="text-xs text-gray-600">GitHub Personal Access Token (gist permission)</label>
+        <input id="tokenInput" class="w-full border rounded px-2 py-2" placeholder="Paste token here (kept locally)" />
+        <div class="flex gap-2">
+          <button id="saveToken" class="flex-1 bg-indigo-600 text-white px-3 py-2 rounded">Save Token</button>
+          <button id="clearToken" class="flex-1 bg-gray-200 px-3 py-2 rounded">Clear Token</button>
+        </div>
+
+        <label class="text-xs text-gray-600">PIN (4-6 digits) — used to encrypt/decrypt data</label>
+        <input id="pinInput" type="password" class="w-full border rounded px-2 py-2" placeholder="Enter PIN" />
+        <div class="flex gap-2">
+          <button id="savePin" class="flex-1 bg-green-600 text-white px-3 py-2 rounded">Save PIN</button>
+          <button id="clearPin" class="flex-1 bg-gray-200 px-3 py-2 rounded">Clear PIN</button>
+        </div>
+
+        <div class="flex gap-2">
+          <button id="forceSync" class="flex-1 bg-blue-600 text-white px-3 py-2 rounded">Force Sync</button>
+          <button id="exportBtn" class="flex-1 bg-green-600 text-white px-3 py-2 rounded">Export JSON</button>
+        </div>
+
+        <div class="flex gap-2">
+          <input id="importFile" type="file" accept=".json" class="hidden" />
+          <button id="importBtn" class="flex-1 bg-purple-600 text-white px-3 py-2 rounded">Import JSON</button>
+          <button id="resetLocal" class="flex-1 bg-red-500 text-white px-3 py-2 rounded">Reset Local Data</button>
+        </div>
+
+        <div class="text-xs text-gray-500">Sync status: <span id="syncStatus">Not set</span></div>
+      </div>
+    </div>
   </div>
 
 <script>
-/* -------------------------
-  Data model (localStorage)
-  habit = {
-    id, name, target, history: { "YYYY-MM-DD": number }, badges: { '7day':true, '30day':true, 'perfectMonthYYYY-MM':true }
-  }
-  ------------------------- */
+/* --------------------------
+   Data & utilities (localStorage)
+   -------------------------- */
+const LS_KEY = 'habit_tracker_hybrid_gist_v1';
+const SYNC_META = 'habit_tracker_gist_meta_v1'; // stores gistId, salt, maybe token stored separately local
+const TOKEN_KEY = 'habit_tracker_token_v1';
+const PIN_KEY = 'habit_tracker_pin_saved_v1'; // stored encrypted? we'll store hashed indicator and raw PIN if user saves (local only)
 
-const LS_KEY = 'habit_tracker_hybrid_v1';
 function todayISO(offset=0){ const d=new Date(); d.setDate(d.getDate()+offset); return d.toISOString().slice(0,10); }
-function load(){ try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; } }
-function save(h){ localStorage.setItem(LS_KEY, JSON.stringify(h)); }
-function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function loadLocal(){ try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; } }
+function saveLocal(h){ localStorage.setItem(LS_KEY, JSON.stringify(h)); }
+function saveSyncMeta(meta){ localStorage.setItem(SYNC_META, JSON.stringify(meta)); }
+function loadSyncMeta(){ try { return JSON.parse(localStorage.getItem(SYNC_META) || '{}'); } catch { return {}; } }
+function saveToken(t){ localStorage.setItem(TOKEN_KEY, t); }
+function loadToken(){ return localStorage.getItem(TOKEN_KEY) || ''; }
+function savePinLocal(pin){ localStorage.setItem(PIN_KEY, pin); } // store locally for convenience (device only)
+function loadPinLocal(){ return localStorage.getItem(PIN_KEY) || ''; }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
 /* UI refs */
 const el = id => document.getElementById(id);
@@ -171,441 +184,455 @@ const badgesRow = el('badgesRow'), todayCountEl = el('todayCount'), incrementBtn
 const heatmapEl = el('heatmap'), percentChartCtx = el('percentChart').getContext('2d'), streakBadge = el('streakBadge');
 const monthProgressBar = el('monthProgressBar'), monthProgressText = el('monthProgressText');
 const todayPctEl = el('todayPct'), lastUpdatedEl = el('lastUpdated');
-const exportBtnTop = el('exportBtnTop'), importBtn = el('importBtn'), importFile = el('importFile'), randomQuoteBtn = el('randomQuoteBtn');
+const quoteBtn = el('quoteBtn'), settingsBtn = el('settingsBtn'), settingsModal = el('settingsModal'), closeSettings = el('closeSettings');
+const tokenInput = el('tokenInput'), saveTokenBtn = el('saveToken'), clearTokenBtn = el('clearToken');
+const pinInput = el('pinInput'), savePinBtn = el('savePin'), clearPinBtn = el('clearPin');
+const forceSyncBtn = el('forceSync'), syncStatusEl = el('syncStatus');
+const exportBtn = el('exportBtn'), importBtn = el('importBtn'), importFile = el('importFile');
+const exportTop = el('exportBtnTop'), quoteBanner = el('quoteBtn');
+const installBtn = el('installBtn'), settingsOpenBtn = el('settingsBtn'), resetLocalBtn = el('resetLocal');
 
-let habits = load(), selectedId = null, percentChart = null;
+let habits = loadLocal(), selectedId = null, percentChart = null;
 
-/* Motivational quotes */
+/* Motivational quotes: mix of serious & funny */
 const QUOTES = [
   "Small progress is still progress.",
-  "Do it for the person you'll become.",
+  "Stop scrolling — do one rep!",
   "Consistency compounds — keep going.",
+  "You vs You. Win today.",
+  "Drink water. Pretend you’re a cactus.",
   "One more rep. One more day.",
   "Build habits, build life.",
-  "You're closer than you think.",
-  "Good things take time. Keep showing up."
+  "If you skip once, skip again? Nah. Show up.",
+  "Be the hero your past self needed.",
+  "No regrets, just reps."
 ];
 
-/* Confetti (simple canvas-based) */
+/* Confetti canvas */
 const confettiCanvas = el('confetti-canvas');
-confettiCanvas.width = window.innerWidth;
-confettiCanvas.height = window.innerHeight;
+confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight;
 const confettiCtx = confettiCanvas.getContext('2d');
-let confettiPieces = [];
-function makeConfetti() {
-  confettiPieces = [];
-  const count = 120;
+let confettiPieces = [], confettiAnimId = null;
+function makeConfetti(){
+  confettiPieces = []; const count = 100;
   for (let i=0;i<count;i++){
     confettiPieces.push({
       x: Math.random()*window.innerWidth,
-      y: -Math.random()*window.innerHeight,
-      w: 6 + Math.random()*6,
-      h: 6 + Math.random()*6,
+      y: -Math.random()*200,
+      w: 6 + Math.random()*8,
+      h: 6 + Math.random()*8,
       vx: -2 + Math.random()*4,
       vy: 2 + Math.random()*6,
       rot: Math.random()*360,
       color: ['#f97316','#f59e0b','#10b981','#06b6d4','#7c3aed','#ef4444'][Math.floor(Math.random()*6)]
     });
   }
-  animateConfetti();
+  if (!confettiAnimId) animateConfetti();
 }
-let confettiAnimId = null;
 function animateConfetti(){
   confettiCtx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);
   for (const p of confettiPieces){
-    p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.rot += 6;
-    confettiCtx.save();
-    confettiCtx.translate(p.x, p.y);
-    confettiCtx.rotate(p.rot * Math.PI/180);
-    confettiCtx.fillStyle = p.color;
-    confettiCtx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
-    confettiCtx.restore();
+    p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.rot += 6;
+    confettiCtx.save(); confettiCtx.translate(p.x,p.y); confettiCtx.rotate(p.rot*Math.PI/180);
+    confettiCtx.fillStyle = p.color; confettiCtx.fillRect(-p.w/2,-p.h/2,p.w,p.h); confettiCtx.restore();
   }
   confettiPieces = confettiPieces.filter(p => p.y < window.innerHeight + 50);
   if (confettiPieces.length > 0) confettiAnimId = requestAnimationFrame(animateConfetti);
-  else { confettiCtx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height); cancelAnimationFrame(confettiAnimId); confettiAnimId = null; }
+  else { confettiCtx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height); confettiAnimId = null; }
 }
+window.addEventListener('resize', ()=>{ confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; });
 
 /* Banner helper */
-function showBanner(text, tone='bg-green-500') {
-  const root = el('banner-root');
-  const id = 'banner-'+Date.now();
-  const div = document.createElement('div');
-  div.id = id;
-  div.className = `banner ${tone} text-white`;
-  div.style.padding = '14px 18px';
-  div.innerHTML = `<div class="font-semibold">${text}</div>`;
-  root.appendChild(div);
-  setTimeout(()=> { div.style.transition = 'opacity 0.6s'; div.style.opacity = '0'; setTimeout(()=>root.removeChild(div),600); }, 3500);
+function showBanner(text, tone='bg-green-600'){
+  const root = el('banner-root'); const id = 'ban-'+Date.now();
+  const div = document.createElement('div'); div.id = id; div.className = 'banner text-white '+tone; div.innerHTML = `<div class="font-semibold">${text}</div>`;
+  root.appendChild(div); setTimeout(()=>{ div.style.transition='opacity 0.6s'; div.style.opacity='0'; setTimeout(()=>root.removeChild(div),600); },3500);
 }
 
-/* Utility: ensure selected habit */
-function ensureSelected() { if (!selectedId && habits.length) selectedId = habits[0].id; }
+/* -----------------------
+   Crypto: PBKDF2 -> AES-GCM
+   ----------------------- */
+const enc = new TextEncoder(), dec = new TextDecoder();
 
-/* Render habits list */
-function renderHabitButtons() {
+async function deriveKeyFromPin(pin, saltBase64) {
+  // saltBase64 optional; if not provided generate and return {key, salt}
+  const salt = saltBase64 ? Uint8Array.from(atob(saltBase64), c=>c.charCodeAt(0)) : crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(pin), {name:'PBKDF2'}, false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({
+    name: 'PBKDF2',
+    salt,
+    iterations: 200000,
+    hash: 'SHA-256'
+  }, keyMaterial, { name:'AES-GCM', length: 256 }, false, ['encrypt','decrypt']);
+  return { key, saltBase64: btoa(String.fromCharCode(...salt)) };
+}
+
+async function encryptData(key, jsonObj) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = enc.encode(JSON.stringify(jsonObj));
+  const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, data);
+  return { iv: btoa(String.fromCharCode(...iv)), ciphertext: btoa(String.fromCharCode(...new Uint8Array(ct))) };
+}
+
+async function decryptData(key, ivBase64, ciphertextBase64) {
+  const iv = Uint8Array.from(atob(ivBase64), c=>c.charCodeAt(0));
+  const ct = Uint8Array.from(atob(ciphertextBase64), c=>c.charCodeAt(0));
+  const plain = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, ct);
+  return JSON.parse(dec.decode(plain));
+}
+
+/* -----------------------
+   Gist Sync helpers
+   ----------------------- */
+// gist content format: { metaVersion:1, salt:..., iv:..., ciphertext:... }
+// we keep gistId in local meta
+async function createPrivateGist(token, encryptedContent) {
+  const body = {
+    description: "Encrypted Habit Tracker backup",
+    public: false,
+    files: { 'habits.enc.json': { content: JSON.stringify(encryptedContent) } }
+  };
+  const r = await fetch('https://api.github.com/gists', {
+    method: 'POST',
+    headers: { 'Authorization': 'token '+token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error('Gist creation failed: '+r.status);
+  return r.json(); // includes id
+}
+
+async function updateGist(token, gistId, encryptedContent) {
+  const body = { files: { 'habits.enc.json': { content: JSON.stringify(encryptedContent) } } };
+  const r = await fetch(`https://api.github.com/gists/${gistId}`, {
+    method: 'PATCH',
+    headers: { 'Authorization': 'token '+token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error('Gist update failed: '+r.status);
+  return r.json();
+}
+
+async function fetchGistContent(token, gistId) {
+  const r = await fetch(`https://api.github.com/gists/${gistId}`, {
+    headers: { 'Authorization': 'token '+token }
+  });
+  if (!r.ok) throw new Error('Fetch gist failed: '+r.status);
+  const data = await r.json();
+  const file = data.files['habits.enc.json'];
+  if (!file) throw new Error('No file in gist');
+  return JSON.parse(file.content);
+}
+
+/* -----------------------
+   Sync logic
+   ----------------------- */
+async function pushToGist() {
+  const token = loadToken();
+  if (!token) { syncStatusEl.textContent = 'No token'; return; }
+  const pin = loadPinLocal();
+  if (!pin) { syncStatusEl.textContent = 'No PIN'; return; }
+  try {
+    syncStatusEl.textContent = 'Encrypting...';
+    // derive key with saved salt if exists
+    let meta = loadSyncMeta();
+    let saltBase64 = meta.salt || null;
+    let derived = await deriveKeyFromPin(pin, saltBase64);
+    if (!saltBase64) { meta.salt = derived.saltBase64; saveSyncMeta(meta); }
+    const key = derived.key;
+    const payload = { habits };
+    const encResult = await encryptData(key, payload);
+    const encryptedContent = { version:1, salt: meta.salt, iv: encResult.iv, ciphertext: encResult.ciphertext };
+    syncStatusEl.textContent = 'Syncing...';
+    if (!meta.gistId) {
+      const created = await createPrivateGist(token, encryptedContent);
+      meta.gistId = created.id; saveSyncMeta(meta);
+    } else {
+      await updateGist(token, meta.gistId, encryptedContent);
+    }
+    syncStatusEl.textContent = 'Synced';
+    showBanner('Synced to Gist');
+  } catch (err) {
+    console.error(err);
+    syncStatusEl.textContent = 'Sync error';
+    showBanner('Sync failed: ' + (err.message || ''), 'bg-red-600');
+  }
+}
+
+async function pullFromGist() {
+  const token = loadToken();
+  if (!token) { syncStatusEl.textContent = 'No token'; return; }
+  const pin = loadPinLocal();
+  if (!pin) { syncStatusEl.textContent = 'No PIN'; return; }
+  try {
+    const meta = loadSyncMeta();
+    if (!meta.gistId) { syncStatusEl.textContent = 'No gist'; return; }
+    syncStatusEl.textContent = 'Fetching...';
+    const content = await fetchGistContent(token, meta.gistId);
+    if (!content.salt) throw new Error('Missing salt');
+    const derived = await deriveKeyFromPin(pin, content.salt);
+    const key = derived.key;
+    const payload = await decryptData(key, content.iv, content.ciphertext);
+    // payload.habits expected
+    if (Array.isArray(payload.habits)) {
+      habits = payload.habits;
+      saveLocal(habits);
+      renderAll();
+      syncStatusEl.textContent = 'Pulled';
+      showBanner('Data loaded from Gist');
+    } else throw new Error('Unexpected content');
+  } catch (err) {
+    console.error(err);
+    syncStatusEl.textContent = 'Pull error';
+    showBanner('Pull failed: ' + (err.message || ''), 'bg-red-600');
+  }
+}
+
+/* -----------------------
+   App UI + logic (habits, charts)
+   ----------------------- */
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
+
+function renderHabitButtons(){
   habitsContainer.innerHTML = '';
-  if (habits.length === 0) {
-    habitsContainer.innerHTML = '<div class="text-sm text-gray-500">No habits yet. Add one above.</div>';
-    selectedId = null;
-    renderMain();
-    return;
-  }
+  if (!habits.length) { habitsContainer.innerHTML = '<div class="text-sm text-gray-500">No habits yet. Add one above.</div>'; selectedId = null; renderMain(); return; }
   for (const h of habits) {
-    const btn = document.createElement('div');
-    btn.className = 'flex items-center justify-between border rounded p-2 hover:shadow cursor-pointer';
-    btn.onclick = () => { selectedId = h.id; renderMain(); };
-    const left = document.createElement('div');
-    left.innerHTML = `<div class="font-medium">${escapeHtml(h.name)}</div><div class="text-xs text-gray-500">${h.target}/day • ${computeTotalCompleted(h)} total</div>`;
-    const right = document.createElement('div');
-    right.className = 'flex items-center gap-2';
-    const editBtn = document.createElement('button');
-    editBtn.className = 'text-xs text-yellow-600 px-2 py-1 rounded hover:bg-yellow-50'; editBtn.textContent='Edit';
-    editBtn.onclick = (e)=> { e.stopPropagation(); editHabit(h.id); };
-    const delBtn = document.createElement('button');
-    delBtn.className = 'text-xs text-red-600 px-2 py-1 rounded hover:bg-red-50'; delBtn.textContent='Delete';
-    delBtn.onclick = (e) => { e.stopPropagation(); deleteHabit(h.id); };
-    right.appendChild(editBtn); right.appendChild(delBtn);
-    btn.appendChild(left); btn.appendChild(right);
-    habitsContainer.appendChild(btn);
+    const div = document.createElement('div'); div.className='flex items-center justify-between border rounded p-2 hover:shadow cursor-pointer';
+    div.onclick = () => { selectedId = h.id; renderMain(); };
+    const left = document.createElement('div'); left.innerHTML = `<div class="font-medium">${escapeHtml(h.name)}</div><div class="text-xs text-gray-500">${h.target}/day • ${computeTotal(h)} total</div>`;
+    const right = document.createElement('div'); right.className='flex items-center gap-2';
+    const edt = document.createElement('button'); edt.className='text-xs text-yellow-600 px-2 py-1 rounded hover:bg-yellow-50'; edt.textContent='Edit'; edt.onclick = (e)=>{ e.stopPropagation(); editHabit(h.id); };
+    const del = document.createElement('button'); del.className='text-xs text-red-600 px-2 py-1 rounded hover:bg-red-50'; del.textContent='Delete'; del.onclick = (e)=>{ e.stopPropagation(); deleteHabit(h.id); };
+    right.appendChild(edt); right.appendChild(del); div.appendChild(left); div.appendChild(right); habitsContainer.appendChild(div);
   }
 }
 
-/* Escape html small helper */
-function escapeHtml(s){ return s.replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[m]); }
+function computeTotal(h){ return Object.values(h.history||{}).reduce((s,v)=>s+(parseInt(v)||0),0); }
 
-/* Add habit */
-addBtn.addEventListener('click', () => {
+document.getElementById('addBtn').addEventListener('click', ()=>{
   const name = newName.value.trim(); const target = parseInt(newTarget.value,10);
-  if (!name || !target || target <= 0) { alert('Please enter a valid name and target (>=1).'); return; }
+  if (!name || !target || target < 1) { alert('Enter valid name & target'); return; }
   const h = { id: uid(), name, target, history: {}, badges: {} };
-  habits.unshift(h); save(habits); newName.value=''; newTarget.value='5'; selectedId = h.id; renderAll();
-  showBanner('Habit added — let’s go!', 'bg-indigo-600');
+  habits.unshift(h); saveLocal(habits); newName.value=''; newTarget.value='5'; selectedId = h.id; renderAll();
+  showBanner('Habit added', 'bg-indigo-600'); // local first
+  // push to gist if token + pin exist
+  schedulePush();
 });
 
-/* Edit / Delete */
-function editHabit(id) {
-  const h = habits.find(x=>x.id===id); if (!h) return;
-  const nn = prompt('Edit habit name:', h.name); if (nn === null) return;
-  const nt = prompt('Daily target (number):', h.target); if (nt === null) return;
-  const t = parseInt(nt,10); if (!nn.trim() || isNaN(t) || t<1) return alert('Invalid name or target');
-  h.name = nn.trim(); h.target = t; save(habits); renderAll(); showBanner('Habit updated', 'bg-yellow-600');
+function editHabit(id){
+  const h = habits.find(x=>x.id===id); if(!h) return;
+  const nn = prompt('Edit name:', h.name); if (nn===null) return;
+  const nt = prompt('Daily target:', h.target); if (nt===null) return;
+  const t = parseInt(nt,10); if(!nn.trim()||isNaN(t)||t<1) return alert('Invalid');
+  h.name = nn.trim(); h.target = t; saveLocal(habits); renderAll(); schedulePush();
 }
-function deleteHabit(id) {
-  if (!confirm('Delete this habit? This will remove its history.')) return;
-  habits = habits.filter(h=>h.id !== id); save(habits); selectedId = habits[0]?.id || null; renderAll(); showBanner('Habit deleted', 'bg-red-600');
-}
-
-/* compute total completions */
-function computeTotalCompleted(h) {
-  return Object.values(h.history || {}).reduce((s,v)=>s+(parseInt(v)||0),0);
+function deleteHabit(id){
+  if (!confirm('Delete this habit and its history?')) return;
+  habits = habits.filter(x=>x.id!==id); saveLocal(habits); selectedId = habits[0]?.id || null; renderAll(); schedulePush();
 }
 
-/* Adjust today count */
-incrementBtn.addEventListener('click', ()=> adjustTodayCount(1));
-decrementBtn.addEventListener('click', ()=> adjustTodayCount(-1));
+document.getElementById('increment').addEventListener('click', ()=> adjustToday(1));
+document.getElementById('decrement').addEventListener('click', ()=> adjustToday(-1));
 
-function adjustTodayCount(delta) {
-  const h = habits.find(x=>x.id===selectedId); if (!h) return;
-  const date = todayISO();
-  if (!h.history) h.history = {};
-  const current = parseInt(h.history[date]||0,10);
-  const next = Math.max(0, current + delta);
-  h.history[date] = next;
-  save(habits);
-  renderMain();
-  // If new value achieves or surpasses target and previously didn't, celebrate
-  if (current < h.target && next >= h.target) {
-    makeConfetti(); showBanner(`Daily goal met — +${h.target} ✅`, 'bg-green-600');
-    evaluateAndAwardBadges(h);
-  }
+function adjustToday(delta){
+  const h = habits.find(x=>x.id===selectedId); if(!h) return;
+  const d = todayISO(); if(!h.history) h.history = {};
+  const cur = parseInt(h.history[d]||0,10);
+  const next = Math.max(0, cur + delta);
+  h.history[d] = next;
+  saveLocal(habits); renderMain(); schedulePush();
+  if (cur < h.target && next >= h.target) { makeConfetti(); showBanner('Daily target reached!', 'bg-green-600'); evaluateBadges(h); }
 }
 
-/* Render main panel */
-function renderMain() {
-  renderHabitButtons();
-  ensureSelected();
+function renderMain(){
+  renderHabitButtons(); ensureSelected();
   const h = habits.find(x=>x.id===selectedId);
-  if (!h) {
-    habitTitle.textContent = 'Select a habit';
-    habitTargetText.textContent = '';
-    todayCountEl.textContent = '0';
-    streakBadge.textContent = 'Streak: —';
-    heatmapEl.innerHTML = '';
-    monthProgressBar.style.width = '0%';
-    monthProgressText.textContent = '0% • 0 / 0';
-    percentChart?.destroy();
-    badgesRow.innerHTML = '';
-    return;
-  }
-
-  habitTitle.textContent = h.name;
-  habitTargetText.textContent = `Target: ${h.target} times / day`;
+  if (!h) { habitTitle.textContent='Select a habit'; habitTargetText.textContent=''; todayCountEl.textContent='0'; heatmapEl.innerHTML=''; percentChart?.destroy(); badgesRow.innerHTML=''; return; }
+  habitTitle.textContent = h.name; habitTargetText.textContent = `Target: ${h.target}/day`;
   badgesRow.innerHTML = '';
-  // show unlocked badges small
-  for (const k of Object.keys(h.badges || {})) {
-    if (!h.badges[k]) continue;
-    const b = document.createElement('span');
-    b.className = 'text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full';
-    b.textContent = badgeNiceName(k);
-    badgesRow.appendChild(b);
-  }
-
-  // today's count
-  const today = todayISO();
-  const todayCount = parseInt(h.history?.[today]||0,10);
-  todayCountEl.textContent = todayCount;
-  const pct = Math.round((todayCount / h.target) * 100);
-  todayPctEl.textContent = `${Math.min(pct,999)}%`;
+  for (const k in (h.badges||{})) { if (h.badges[k]) { const s=document.createElement('span'); s.className='text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full'; s.textContent = badgeNice(k); badgesRow.appendChild(s); } }
+  const today = todayISO(); const tcount = parseInt(h.history?.[today]||0,10); todayCountEl.textContent = tcount;
+  const pct = Math.round((tcount/h.target)*100); todayPctEl.textContent = `${Math.min(pct,999)}%`;
   lastUpdatedEl.textContent = h.history && h.history[today] !== undefined ? 'Last updated: today' : 'Last updated: —';
-
-  // streak
   streakBadge.textContent = `Streak: ${computeStreak(h)} days`;
-
-  // month progress
-  const monthStats = computeMonthProgress(h);
-  monthProgressBar.style.width = `${monthStats.pct}%`;
-  monthProgressText.textContent = `${monthStats.pct}% • ${monthStats.sum}/${monthStats.days * h.target}`;
-
-  // render heatmap & chart
-  renderHeatmap(h);
-  updateCharts(h);
-
-  // evaluate badges on every render to catch conditions made by import, editing, etc.
-  evaluateAndAwardBadges(h);
+  const mp = computeMonthProgress(h); monthProgressBar.style.width = `${mp.pct}%`; monthProgressText.textContent = `${mp.pct}% • ${mp.sum}/${mp.days*h.target}`;
+  renderHeatmap(h); updateCharts(h); evaluateBadges(h);
 }
 
-/* compute streak */
-function computeStreak(h) {
-  if (!h || !h.history) return 0;
-  let streak = 0;
-  for (let i=0;i<365;i++){
-    const d = todayISO(-i);
-    const val = parseInt(h.history[d]||0,10);
-    if (val >= h.target) streak++; else break;
-  }
-  return streak;
+function ensureSelected(){ if (!selectedId && habits.length) selectedId = habits[0].id; }
+
+function computeStreak(h){
+  if(!h || !h.history) return 0; let s=0;
+  for (let i=0;i<365;i++){ const d=todayISO(-i); const v=parseInt(h.history[d]||0,10); if (v>=h.target) s++; else break; }
+  return s;
+}
+function computeMonthProgress(h){
+  const now = new Date(); const y = now.getFullYear(), m = now.getMonth(); const first = new Date(y,m,1), last = new Date(y,m+1,0), days = last.getDate();
+  let sum = 0; for (let d=1; d<=days; d++){ const iso = new Date(y,m,d).toISOString().slice(0,10); sum += parseInt(h.history?.[iso]||0,10); }
+  const pct = Math.round((sum / (days*h.target)) * 100); return { days, sum, pct: Math.min(100, pct) };
 }
 
-/* compute month progress */
-function computeMonthProgress(h) {
-  const now = new Date(); const y = now.getFullYear(), m = now.getMonth();
-  const first = new Date(y,m,1); const last = new Date(y,m+1,0);
-  const days = last.getDate();
-  let sum = 0;
-  for (let d=1;d<=days;d++){
-    const iso = new Date(y,m,d).toISOString().slice(0,10);
-    sum += parseInt(h.history?.[iso]||0,10);
-  }
-  const pct = Math.round((sum / (days * h.target)) * 100);
-  return { days, sum, pct: Math.min(100, pct) };
-}
-
-/* render heatmap (month grid) */
-function renderHeatmap(h) {
-  heatmapEl.innerHTML = '';
-  const now = new Date(); const year = now.getFullYear(), month = now.getMonth();
-  const first = new Date(year, month, 1);
-  const last = new Date(year, month+1, 0);
-  const daysInMonth = last.getDate();
-  const startWeekday = first.getDay();
-
-  // dow headers
-  const dow = ['S','M','T','W','T','F','S'];
-  const headerRow = document.createElement('div');
-  headerRow.style.gridColumn = '1 / -1';
-  headerRow.className = 'flex gap-1 mb-1';
-  dow.forEach(w => {
-    const elw = document.createElement('div'); elw.className = 'text-xs text-gray-500 w-7 text-center'; elw.textContent = w; headerRow.appendChild(elw);
-  });
-  heatmapEl.appendChild(headerRow);
-  heatmapEl.style.gridTemplateColumns = 'repeat(7, auto)';
-
-  // blanks
-  for (let i=0;i<startWeekday;i++){
-    const blank = document.createElement('div'); blank.className = 'heat-square bg-transparent'; heatmapEl.appendChild(blank);
-  }
-
-  for (let d=1; d<=daysInMonth; d++) {
-    const iso = new Date(year, month, d).toISOString().slice(0,10);
-    const val = parseInt(h.history?.[iso]||0,10);
-    const pct = Math.min(200, Math.round((val / h.target) * 100));
-    const sq = document.createElement('div');
-    sq.className = 'heat-square';
-    sq.textContent = d;
-    sq.title = `${iso}: ${val}/${h.target} (${pct}%)`;
-
-    // color mapping: 0 grey, 1-49 light, 50-99 green, 100 gold, 150+ red (overachievement)
-    if (pct === 0) sq.style.background = '#e6e6e6';
-    else if (pct <= 49) sq.style.background = '#d6f5d6';
-    else if (pct <= 99) sq.style.background = '#7dd38b';
-    else if (pct <= 149) { sq.style.background = '#f6c84c'; sq.style.color = '#000'; }
-    else { sq.style.background = '#ef4444'; sq.style.color = '#fff'; }
-
-    // click to edit that day's count
-    sq.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const newVal = prompt(`Set count for ${iso} (target ${h.target}):`, val);
-      if (newVal === null) return;
-      const n = parseInt(newVal,10); if (isNaN(n) || n < 0) return alert('Invalid number');
-      if (!h.history) h.history = {};
-      h.history[iso] = n;
-      save(habits);
-      renderMain();
-    });
-
+/* heatmap */
+function renderHeatmap(h){
+  heatmapEl.innerHTML=''; const now = new Date(), y=now.getFullYear(), m=now.getMonth();
+  const first = new Date(y,m,1), last=new Date(y,m+1,0), days=last.getDate(), start = first.getDay();
+  const dow = ['S','M','T','W','T','F','S']; const headerRow = document.createElement('div'); headerRow.style.gridColumn='1 / -1'; headerRow.className='flex gap-1 mb-1';
+  dow.forEach(w=>{ const elw = document.createElement('div'); elw.className='text-xs text-gray-500 w-7 text-center'; elw.textContent = w; headerRow.appendChild(elw); });
+  heatmapEl.appendChild(headerRow); heatmapEl.style.gridTemplateColumns = 'repeat(7, auto)';
+  for (let i=0;i<start;i++){ const blank = document.createElement('div'); blank.className='heat-square bg-transparent'; heatmapEl.appendChild(blank); }
+  for (let d=1; d<=days; d++){
+    const iso = new Date(y,m,d).toISOString().slice(0,10); const val = parseInt(h.history?.[iso]||0,10); const pct = Math.min(200, Math.round((val/h.target)*100));
+    const sq = document.createElement('div'); sq.className='heat-square'; sq.textContent = d; sq.title = `${iso}: ${val}/${h.target} (${pct}%)`;
+    if (pct===0) sq.style.background='#e6e6e6';
+    else if (pct<=49) sq.style.background='#d6f5d6';
+    else if (pct<=99) sq.style.background='#7dd38b';
+    else if (pct<=149) { sq.style.background='#f6c84c'; sq.style.color='#000'; }
+    else { sq.style.background='#ef4444'; sq.style.color='#fff'; }
+    sq.addEventListener('click', (e)=>{ e.stopPropagation(); const nv = prompt(`Set count for ${iso} (target ${h.target}):`, val); if (nv===null) return; const n=parseInt(nv,10); if (isNaN(n)||n<0) return alert('Invalid'); h.history = h.history || {}; h.history[iso] = n; saveLocal(habits); renderMain(); schedulePush(); });
     heatmapEl.appendChild(sq);
   }
-
-  // pad last row
-  const totalCells = startWeekday + daysInMonth;
-  const remainder = (7 - (totalCells % 7)) % 7;
-  for (let i=0;i<remainder;i++){
-    const blank = document.createElement('div'); blank.className = 'heat-square bg-transparent'; heatmapEl.appendChild(blank);
-  }
+  const totalCells = start + days; const rem = (7 - (totalCells % 7)) % 7;
+  for (let i=0;i<rem;i++){ const blank = document.createElement('div'); blank.className='heat-square bg-transparent'; heatmapEl.appendChild(blank); }
 }
 
-/* Chart: last 30 days completion % */
-function updateCharts(h) {
+/* chart */
+function updateCharts(h){
   if (!h) { percentChart?.destroy(); percentChart = null; return; }
   const labels = [], data = [];
-  for (let i=29;i>=0;i--) {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    const iso = d.toISOString().slice(0,10);
-    labels.push(iso.slice(5));
-    const val = parseInt(h.history?.[iso]||0,10);
-    const pct = Math.round((val / h.target) * 100);
-    data.push(Math.min(200, pct));
-  }
-
+  for (let i=29;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const iso = d.toISOString().slice(0,10); labels.push(iso.slice(5)); const val = parseInt(h.history?.[iso]||0,10); const pct = Math.round((val/h.target)*100); data.push(Math.min(200,pct)); }
   percentChart?.destroy();
   percentChart = new Chart(percentChartCtx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: '% of target',
-        data,
-        backgroundColor: ctx => {
-          const v = ctx.raw;
-          if (v === 0) return '#e6e6e6';
-          if (v <= 49) return '#d6f5d6';
-          if (v <= 99) return '#7dd38b';
-          if (v <= 149) return '#f6c84c';
-          return '#ef4444';
-        }
-      }]
-    },
-    options: {
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, max: 200, ticks: { callback: v => v + '%' } } }
-    }
+    type:'bar',
+    data:{ labels, datasets:[{ label:'% of target', data, backgroundColor: ctx => {
+      const v = ctx.raw; if (v===0) return '#e6e6e6'; if (v<=49) return '#d6f5d6'; if (v<=99) return '#7dd38b'; if (v<=149) return '#f6c84c'; return '#ef4444';
+    }}] },
+    options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, max:200, ticks:{ callback: v => v + '%' } } } }
   });
 }
 
-/* Evaluate badges and award (once) */
-function badgeNiceName(k) {
-  if (k === '7day') return '7-day streak';
-  if (k === '30day') return '30-day streak';
-  if (k.startsWith('perfectMonth')) return 'Perfect month';
-  return k;
-}
-function evaluateAndAwardBadges(h) {
-  const newly = [];
+/* badges (7-day,30-day,perfect month) */
+function badgeNice(k){ if (k==='7day') return '7-day'; if (k==='30day') return '30-day'; if (k.startsWith('perfectMonth')) return 'Perfect month'; return k; }
+function evaluateBadges(h){
   if (!h.badges) h.badges = {};
-
-  // 7-day streak
+  const newly = [];
   if (!h.badges['7day'] && computeStreak(h) >= 7) { h.badges['7day'] = true; newly.push('7-day streak'); }
-
-  // 30-day streak
   if (!h.badges['30day'] && computeStreak(h) >= 30) { h.badges['30day'] = true; newly.push('30-day streak'); }
-
-  // perfect month (any month where every day >= target)
-  // check current month
-  const now = new Date(); const y = now.getFullYear(), m = now.getMonth();
-  const first = new Date(y,m,1), last = new Date(y,m+1,0), days = last.getDate();
+  // perfect current month
+  const now = new Date(); const y = now.getFullYear(), m = now.getMonth(); const first = new Date(y,m,1), last = new Date(y,m+1,0), days = last.getDate();
   let perfect = true;
-  for (let d=1; d<=days; d++){
-    const iso = new Date(y,m,d).toISOString().slice(0,10);
-    const val = parseInt(h.history?.[iso]||0,10);
-    if (val < h.target) { perfect = false; break; }
-  }
+  for (let d=1; d<=days; d++){ const iso = new Date(y,m,d).toISOString().slice(0,10); const v = parseInt(h.history?.[iso]||0,10); if (v < h.target) { perfect = false; break; } }
   const key = `perfectMonth${y}-${String(m+1).padStart(2,'0')}`;
-  if (perfect && !h.badges[key]) { h.badges[key] = true; newly.push('Perfect month!'); }
-
-  if (newly.length) {
-    save(habits);
-    showBanner(`Milestone: ${newly.join(', ')}`, 'bg-indigo-600');
-    makeConfetti();
-  }
+  if (perfect && !h.badges[key]) { h.badges[key] = true; newly.push('Perfect month'); }
+  if (newly.length){ saveLocal(habits); showBanner('Milestone: '+newly.join(', '), 'bg-indigo-600'); makeConfetti(); schedulePush(); }
 }
 
-/* Export / Import */
-exportBtnTop.addEventListener('click', () => {
-  const blob = new Blob([JSON.stringify(habits, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'habits-backup.json'; a.click();
-});
-importBtn.addEventListener('click', () => importFile.click());
-importFile.addEventListener('change', (e) => {
-  const f = e.target.files[0]; if (!f) return;
-  const r = new FileReader();
-  r.onload = () => {
-    try {
-      const d = JSON.parse(r.result);
-      if (!Array.isArray(d)) return alert('Invalid backup format (must be an array).');
-      habits = d;
-      save(habits);
-      selectedId = habits[0]?.id || null;
-      renderAll();
-      showBanner('Import complete', 'bg-green-600');
-    } catch (err) { alert('Invalid JSON file'); }
-  };
-  r.readAsText(f);
-});
+/* UI glue */
+function renderAll(){ renderHabitButtons(); ensureSelected(); renderMain(); }
+function ensureSelected(){ if (!selectedId && habits.length) selectedId = habits[0].id; }
 
-/* random quote */
-function showRandomQuote() {
-  const q = QUOTES[Math.floor(Math.random()*QUOTES.length)];
-  showBanner(q, 'bg-indigo-700');
-}
-randomQuoteBtn.addEventListener('click', showRandomQuote);
-
-/* small helper to award after import or edits */
-function postLoadEvaluate() {
-  for (const h of habits) evaluateAndAwardBadges(h);
-}
-
-/* Render all */
-function renderAll() {
-  renderHabitButtons();
-  ensureSelected();
-  renderMain();
-}
 if (!selectedId && habits.length) selectedId = habits[0].id;
 renderAll();
-postLoadEvaluate();
 
-/* keyboard: enter to add */
-newName.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
-
-/* Demo data if empty (optional) */
-if (habits.length === 0) {
-  const sample = { id: uid(), name: 'Drink Water', target: 8, history: {}, badges: {} };
-  for (let i=0;i<12;i++){ const d = new Date(); d.setDate(d.getDate()-i); sample.history[d.toISOString().slice(0,10)] = Math.floor(Math.random()*10); }
-  habits.push(sample); save(habits); selectedId = sample.id; renderAll();
+/* demo if empty */
+if (habits.length === 0){
+  const sample = { id: uid(), name: 'Drink Water', target: 8, history:{}, badges:{} };
+  for (let i=0;i<12;i++){ const d=new Date(); d.setDate(d.getDate()-i); sample.history[d.toISOString().slice(0,10)] = Math.floor(Math.random()*10); }
+  habits.push(sample); saveLocal(habits); selectedId = sample.id; renderAll();
 }
 
-/* Window resize for confetti canvas */
-window.addEventListener('resize', () => {
-  confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight;
+/* keyboard enter quick add */
+newName.addEventListener('keydown', e=>{ if (e.key==='Enter') addBtn.click(); });
+
+/* settings modal toggles */
+settingsBtn.addEventListener('click', ()=>{ tokenInput.value = loadToken(); pinInput.value = loadPinLocal(); settingsModal.classList.remove('hidden'); });
+closeSettings.addEventListener('click', ()=>settingsModal.classList.add('hidden'));
+
+/* token/pin save/clear */
+saveTokenBtn.addEventListener('click', ()=>{ const t = tokenInput.value.trim(); if (!t) return alert('Enter token'); saveToken(t); showBanner('Token saved (local)'); syncStatusEl.textContent='Token saved'; });
+clearTokenBtn.addEventListener('click', ()=>{ localStorage.removeItem(TOKEN_KEY); showBanner('Token cleared', 'bg-yellow-600'); syncStatusEl.textContent='No token'; });
+
+savePinBtn.addEventListener('click', ()=>{ const p = pinInput.value.trim(); if (!p) return alert('Enter PIN'); if (p.length<4 || p.length>8) return alert('PIN 4-8 digits recommended'); savePinLocal(p); showBanner('PIN saved (local)'); });
+clearPinBtn.addEventListener('click', ()=>{ localStorage.removeItem(PIN_KEY); showBanner('PIN cleared', 'bg-yellow-600'); });
+
+/* Force sync click -> pull then push (merge approach: remote overwrites local) */
+forceSyncBtn.addEventListener('click', async ()=>{
+  const meta = loadSyncMeta();
+  if (!meta.gistId) {
+    // create gist by pushing
+    await pushToGist();
+  } else {
+    // pull first
+    await pullFromGist();
+    // then push local (if you want local override, you can flip logic)
+    await pushToGist();
+  }
 });
 
-/* Simple helper: when new month starts, evaluate perfect-month badges for previous month too
-   (user can also import historic data; evaluate badges on every render) */
-function init() {
-  showRandomQuote();
+/* Export / Import */
+exportBtn.addEventListener('click', ()=>{ const blob=new Blob([JSON.stringify(habits,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='habits-backup.json'; a.click(); });
+exportTop?.addEventListener('click', ()=>exportBtn.click());
+importBtn.addEventListener('click', ()=> importFile.click());
+importFile.addEventListener('change', (e)=>{ const f = e.target.files[0]; if (!f) return; const r=new FileReader(); r.onload = ()=>{ try { const d = JSON.parse(r.result); if (!Array.isArray(d)) return alert('Invalid file'); habits = d; saveLocal(habits); selectedId = habits[0]?.id||null; renderAll(); showBanner('Import complete','bg-green-600'); schedulePush(); } catch { alert('Invalid JSON'); } }; r.readAsText(f); });
+
+resetLocalBtn.addEventListener('click', ()=>{ if (!confirm('Clear local data? This does not delete gist.')) return; habits=[]; saveLocal(habits); selectedId=null; renderAll(); showBanner('Local data cleared','bg-red-600'); });
+
+/* show random quote */
+quoteBtn.addEventListener('click', ()=>{ showBanner(QUOTES[Math.floor(Math.random()*QUOTES.length)], 'bg-indigo-700'); });
+
+/* tiny debounce for pushing to gist after changes */
+let pushTimeout = null;
+function schedulePush(){
+  if (pushTimeout) clearTimeout(pushTimeout);
+  pushTimeout = setTimeout(()=>{ pushTimeout=null; pushToGist(); }, 1200);
 }
-init();
+
+/* -----------------------
+   Initial sync on load if token+pin+gist present
+   ----------------------- */
+(async function tryAutoPull(){
+  const token = loadToken(), pin = loadPinLocal(), meta = loadSyncMeta();
+  if (token && pin && meta.gistId) { syncStatusEl.textContent='Auto pulling...'; try { await pullFromGist(); } catch (e){ console.warn('Auto pull failed',e); syncStatusEl.textContent='Auto pull failed'; } }
+})();
+
+/* evaluate badges after import or load */
+function postLoadEvaluate(){ for (const h of habits) evaluateBadges(h); }
+postLoadEvaluate();
+
+/* -----------------------
+   PWA: manifest & service worker inline registration
+   ----------------------- */
+(async function registerInlineManifestAndSW(){
+  // create manifest blob and link it
+  const manifest = { name:'Habit Tracker', short_name:'Habits', start_url: './', display:'standalone', background_color:'#f8fafc', icons:[{ src:'', sizes:'192x192', type:'image/png' }] };
+  const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+  const manifestURL = URL.createObjectURL(manifestBlob);
+  const link = document.createElement('link'); link.rel='manifest'; link.href = manifestURL; document.head.appendChild(link);
+
+  // create service worker via blob
+  const swCode = `
+    const CACHE = 'habit-tracker-cache-v1';
+    const FILES = ['./', './index.html', 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'];
+    self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); });
+    self.addEventListener('activate', e => { e.waitUntil(clients.claim()); });
+    self.addEventListener('fetch', e => {
+      if (e.request.method !== 'GET') return;
+      e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+    });
+  `;
+  const swBlob = new Blob([swCode], { type: 'text/javascript' });
+  const swUrl = URL.createObjectURL(swBlob);
+  if ('serviceWorker' in navigator) {
+    try {
+      await navigator.serviceWorker.register(swUrl);
+      console.log('SW registered');
+    } catch (err) { console.warn('SW register failed', err); }
+  }
+  // install prompt handling
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', (e)=>{ e.preventDefault(); deferredPrompt = e; installBtn.classList.remove('hidden'); installBtn.onclick = async ()=>{ if (!deferredPrompt) return; deferredPrompt.prompt(); const { outcome } = await deferredPrompt.userChoice; deferredPrompt = null; installBtn.classList.add('hidden'); }; });
+})();
+
+/* Done */
+console.log('Habit Tracker loaded');
 
 </script>
 </body>
