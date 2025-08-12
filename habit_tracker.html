@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Habit Tracker — Heatmap + Charts + Backup</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .heat-square { width: 28px; height: 28px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:10px; cursor:pointer; }
+    @media (max-width: 640px) { .heat-square { width: 22px; height:22px; font-size:9px; } }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-4">
+  <div class="max-w-3xl mx-auto">
+    <div class="bg-white shadow rounded-lg p-4 mb-4">
+      <h1 class="text-2xl font-bold text-center mb-2">🔥 Habit Tracker</h1>
+      <p class="text-sm text-gray-600 text-center mb-4">Private data stored locally — export/import backups anytime.</p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+        <input id="newName" class="col-span-2 border rounded px-2 py-2" placeholder="New habit name" />
+        <input id="newTarget" type="number" min="1" value="5" class="border rounded px-2 py-2" placeholder="target/day" />
+        <button id="addBtn" class="sm:col-span-3 bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Add Habit</button>
+      </div>
+
+      <div class="flex gap-2 flex-wrap" id="habitsContainer"></div>
+    </div>
+
+    <div id="mainPanel" class="bg-white shadow rounded-lg p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-3">
+          <label class="text-sm text-gray-600">Selected habit:</label>
+          <select id="habitSelect" class="border rounded px-2 py-1"></select>
+          <button id="editSelected" class="bg-yellow-400 text-white px-2 py-1 rounded hover:bg-yellow-500">Edit</button>
+          <button id="deleteSelected" class="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">Delete</button>
+        </div>
+        <div class="flex gap-2">
+          <button id="exportBtn" class="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700">Export</button>
+          <input type="file" id="importFile" accept=".json" class="hidden">
+          <button id="importBtn" class="bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700">Import</button>
+        </div>
+        <div class="text-sm text-gray-600">
+          <span id="streakBadge" class="font-semibold"></span>
+        </div>
+      </div>
+
+      <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="col-span-1 bg-gray-50 rounded p-3">
+          <h3 id="habitTitle" class="text-lg font-semibold"></h3>
+          <p class="text-sm text-gray-500" id="habitTargetText"></p>
+          <div class="mt-3 flex items-center gap-2">
+            <button id="decrement" class="bg-gray-200 px-3 py-1 rounded">−</button>
+            <div class="text-xl font-bold" id="todayCount">0</div>
+            <button id="increment" class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">+</button>
+          </div>
+          <div class="mt-3 text-sm text-gray-600">
+            Today: <span id="todayPct">0%</span> • Last updated: <span id="lastUpdated">—</span>
+          </div>
+        </div>
+        <div class="col-span-2 bg-gray-50 rounded p-3">
+          <h4 class="font-semibold mb-2">Calendar Heatmap — This Month</h4>
+          <div id="heatmap" class="grid gap-1" style="grid-template-columns: repeat(7, auto);"></div>
+          <div class="flex gap-2 text-xs text-gray-600 mt-2">
+            <div class="flex items-center gap-1"><div class="h-4 w-4 rounded bg-gray-200"></div> 0%</div>
+            <div class="flex items-center gap-1"><div class="h-4 w-4 rounded" style="background:#d6f5d6"></div> 1–49%</div>
+            <div class="flex items-center gap-1"><div class="h-4 w-4 rounded" style="background:#7dd38b"></div> 50–99%</div>
+            <div class="flex items-center gap-1"><div class="h-4 w-4 rounded" style="background:#15803d"></div> 100%+</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <h4 class="font-semibold mb-2">30-Day Completion %</h4>
+        <canvas id="percentChart" height="90"></canvas>
+      </div>
+    </div>
+
+    <div class="text-sm text-gray-500 text-center mt-3">
+      Hosted on GitHub Pages — data never leaves your browser.
+    </div>
+  </div>
+
+<script>
+const LS_KEY = 'habit_tracker_v1';
+function todayISO(offset=0){let d=new Date();d.setDate(d.getDate()+offset);return d.toISOString().slice(0,10);}
+function load(){return JSON.parse(localStorage.getItem(LS_KEY)||'[]');}
+function save(h){localStorage.setItem(LS_KEY,JSON.stringify(h));}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+let habits=load(),selectedId=null,percentChart=null;
+const el=(id)=>document.getElementById(id);
+function renderHabitButtons(){
+  const hc=el('habitsContainer'),hs=el('habitSelect');
+  hc.innerHTML='';hs.innerHTML='';
+  if(!habits.length){hc.innerHTML='<div class="text-sm text-gray-500">No habits yet.</div>';hs.innerHTML='<option value="">—</option>';selectedId=null;renderMain();return;}
+  habits.forEach(h=>{
+    let b=document.createElement('button');
+    b.className='bg-white border rounded px-3 py-1 text-sm hover:shadow';
+    b.textContent=`${h.name} • ${h.target}/day`;b.onclick=()=>{selectedId=h.id;renderMain();};
+    hc.appendChild(b);
+    let o=document.createElement('option');o.value=h.id;o.textContent=h.name;hs.appendChild(o);
+  });
+  if(!selectedId||!habits.some(h=>h.id===selectedId))selectedId=habits[0].id;
+  hs.value=selectedId;
+}
+function computeStreak(h){if(!h.history)return 0;let s=0;for(let i=0;i<365;i++){let d=todayISO(-i),v=h.history[d]||0;if(v>=h.target)s++;else break;}return s;}
+function renderHeatmap(h){
+  const heat=el('heatmap');heat.innerHTML='';
+  let now=new Date(),y=now.getFullYear(),m=now.getMonth(),first=new Date(y,m,1),last=new Date(y,m+1,0),
+      start=first.getDay(),days=last.getDate();
+  for(let i=0;i<start;i++){let blank=document.createElement('div');blank.className='heat-square bg-transparent';heat.appendChild(blank);}
+  for(let d=1;d<=days;d++){
+    let dateStr=new Date(y,m,d).toISOString().slice(0,10),val=h.history?.[dateStr]||0,pct=Math.min(100,Math.round(val/h.target*100)),
+        sq=document.createElement('div');
+    sq.className='heat-square';sq.textContent=d;
+    if(pct===0)sq.style.background='#e6e6e6';
+    else if(pct<=49)sq.style.background='#d6f5d6';
+    else if(pct<=99)sq.style.background='#7dd38b';
+    else{sq.style.background='#15803d';sq.style.color='#fff';}
+    sq.title=`${dateStr}: ${val}/${h.target} (${pct}%)`;
+    sq.onclick=()=>{let nv=prompt(`Set count for ${dateStr}:`,val);if(nv===null)return;nv=parseInt(nv,10);if(isNaN(nv)||nv<0)return;h.history[dateStr]=nv;save(habits);renderMain();};
+    heat.appendChild(sq);
+  }
+}
+function updateChart(){
+  let h=habits.find(x=>x.id===selectedId);if(!h){percentChart?.destroy();return;}
+  let labels=[],data=[];for(let i=29;i>=0;i--){let d=new Date();d.setDate(d.getDate()-i);
+    let iso=d.toISOString().slice(0,10);labels.push(iso.slice(5));
+    let val=h.history?.[iso]||0,pct=Math.round(val/h.target*100);data.push(Math.min(200,pct));
+  }
+  percentChart?.destroy();
+  percentChart=new Chart(el('percentChart').getContext('2d'),{
+    type:'bar',data:{labels,datasets:[{label:'% of target',data,backgroundColor:c=>{let v=c.raw;if(v===0)return'#e6e6e6';if(v<=49)return'#d6f5d6';if(v<=99)return'#7dd38b';return'#15803d';}}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,max:200,ticks:{callback:v=>v+'%'}}}}
+  });
+}
+function renderMain(){
+  renderHabitButtons();
+  let h=habits.find(x=>x.id===selectedId);if(!h){el('habitTitle').textContent='No habit';return;}
+  el('habitTitle').textContent=h.name;el('habitTargetText').textContent=`Target: ${h.target}/day`;
+  let today=todayISO(),count=h.history?.[today]||0;pct=Math.round(count/h.target*100);
+  el('todayCount').textContent=count;el('todayPct').textContent=`${pct}%`;el('lastUpdated').textContent=h.history?.[today]!==undefined?today:'—';
+  el('streakBadge').textContent=`Streak: ${computeStreak(h)} days`;
+  renderHeatmap(h);updateChart();
+}
+function adjustToday(n){let h=habits.find(x=>x.id===selectedId);if(!h)return;let t=todayISO(),c=h.history?.[t]||0;c=Math.max(0,c+n);h.history[t]=c;save(habits);renderMain();}
+el('addBtn').onclick=()=>{let name=el('newName').value.trim(),target=parseInt(el('newTarget').value,10);if(!name||!target)return alert('Enter valid name & target');let h={id:uid(),name,target,history:{}};habits.unshift(h);save(habits);el('newName').value='';el('newTarget').value=5;selectedId=h.id;renderMain();};
+el('editSelected').onclick=()=>{let h=habits.find(x=>x.id===selectedId);if(!h)return;let nn=prompt('Name:',h.name),nt=prompt('Target:',h.target);if(nn&&nt>0){h.name=nn;h.target=parseInt(nt,10);save(habits);renderMain();}};
+el('deleteSelected').onclick=()=>{if(confirm('Delete habit?')){habits=habits.filter(h=>h.id!==selectedId);save(habits);selectedId=habits[0]?.id||null;renderMain();}};
+el('increment').onclick=()=>adjustToday(1);el('decrement').onclick=()=>adjustToday(-1);el('habitSelect').onchange=e=>{selectedId=e.target.value;renderMain();};
+/* Export / Import */
+el('exportBtn').onclick=()=>{let blob=new Blob([JSON.stringify(habits)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='habits-backup.json';a.click();};
+el('importBtn').onclick=()=>el('importFile').click();
+el('importFile').onchange=(e)=>{let file=e.target.files[0];if(!file)return;let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(Array.isArray(d)){habits=d;save(habits);selectedId=habits[0]?.id||null;renderMain();}else alert('Invalid file');}catch{alert('Invalid JSON');}};r.readAsText(file);};
+if(!selectedId&&habits.length)selectedId=habits[0].id;renderMain();
+</script>
+</body>
+</html>
